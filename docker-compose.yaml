@@ -3,11 +3,11 @@ services:
   # ────────────────────────────────────────
   backend:
     build:
-      context: .
-      dockerfile: backend/Dockerfile
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: helical-backend
     volumes:
-      - helical_data:/app/data           # datasets + SQLite
+      - ./backend/data:/app/data      # datasets + SQLite
     environment:
       - HELICAL_DATA_DIR=/app/data
     ports:
@@ -31,6 +31,24 @@ services:
       - /app/node_modules
     environment:
       - CHOKIDAR_USEPOLLING=true
+  
+  worker:
+    build: ./backend
+    command: celery -A app.worker worker --loglevel=info
+    depends_on:
+      - redis
+      - backend
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+  
+  redis:
+    image: redis:7
+    container_name: helical-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
 
 volumes:
-  helical_data:                           # named volume keeps uploads + DB
+  helical_data:      
+
+                     # named volume keeps uploads + DB
