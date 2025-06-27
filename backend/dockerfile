@@ -5,8 +5,12 @@ FROM python:3.10-slim AS base
 
 # System deps (if Helical needs BLAS / HDF5, add here)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        build-essential git && \
-    rm -rf /var/lib/apt/lists/*
+    build-essential \
+    gfortran \
+    pkg-config \
+    libopenblas-dev \
+    git \
+ && rm -rf /var/lib/apt/lists/*
 
 # App dir
 WORKDIR /app

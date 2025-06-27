@@ -30,7 +30,20 @@ class Model(Base):
     description = Column(String, nullable=True)
 
     attributes = relationship("ModelAttribute", back_populates="model", cascade="all, delete-orphan")
-    applications = relationship("Application", secondary="application_models", back_populates="models")
+    
+    application_models = relationship(
+        "ApplicationModel",
+        back_populates="model",
+        cascade="all, delete-orphan"
+    )
+    
+    # many‑to‑many link to Application via association table
+    applications = relationship(
+        "Application",
+        secondary="application_models",
+        back_populates="models",
+        overlaps="application_models"
+    )
 
 class ModelAttribute(Base):
     __tablename__ = "modelattributes"
@@ -51,7 +64,18 @@ class Application(Base):
     is_new = Column(Boolean, default=True)  # Indicates if the application is new
     
     attributes = relationship("ApplicationAttribute", back_populates="application", cascade="all, delete-orphan")
-    models = relationship("Model", secondary="application_models", back_populates="applications")
+    application_models = relationship(
+        "ApplicationModel",
+        back_populates="application",
+        cascade="all, delete-orphan",
+        overlaps="models"
+    )
+    models = relationship(
+        "Model",
+        secondary="application_models",
+        back_populates="applications",
+        overlaps="application_models"
+    )
 
 class ApplicationAttribute(Base):
     __tablename__ = "application_attributes"
@@ -61,16 +85,7 @@ class ApplicationAttribute(Base):
     __table_args__ = (PrimaryKeyConstraint("application_id", "attribute"),)
 
     application = relationship("Application", back_populates="attributes")
-
-class ApplicationModel(Base):
-    __tablename__ = "application_models"
-    application_id = Column(Integer, ForeignKey("applications.id"), primary_key=True)
-    model_id = Column(Integer, ForeignKey("models.id"), primary_key=True)
-
-    application = relationship("Application", back_populates="models")
-    model = relationship("Model", back_populates="applications")
     
-
 class RunHistory(Base):
     __tablename__ = "run_history"
     id = Column(Integer, primary_key=True)
@@ -85,7 +100,7 @@ class RunHistory(Base):
     workflow = relationship("Workflow")
     model = relationship("Model")
     application = relationship("Application")
-    metadata = relationship("ResultMetadata", back_populates="run", cascade="all, delete-orphan")
+    run_info = relationship("ResultMetadata", back_populates="run", cascade="all, delete-orphan")
     
 class ResultMetadata(Base):
     __tablename__ = "result_metadata"
@@ -94,4 +109,21 @@ class ResultMetadata(Base):
     key = Column(String, nullable=False)
     value = Column(String, nullable=True)
 
-    run = relationship("RunHistory", back_populates="metadata")
+    run = relationship("RunHistory", back_populates="run_info")
+    
+class ApplicationModel(Base):
+    __tablename__ = "application_models"
+
+    application_id = Column(Integer, ForeignKey("applications.id"), primary_key=True)
+    model_id = Column(Integer, ForeignKey("models.id"), primary_key=True)
+
+    application = relationship(
+        "Application",
+        back_populates="application_models",
+        overlaps="models,applications"
+    )
+    model = relationship(
+        "Model",
+        back_populates="application_models",
+        overlaps="applications,models"
+    )
