@@ -16,7 +16,9 @@ from helical.models.geneformer import Geneformer, GeneformerConfig
 from copy import deepcopy   
 from torch.nn.functional import one_hot
      
+from datasets import load_dataset
 
+ds = load_dataset("helical-ai/yolksac_human",trust_remote_code=True, split="train[:65%]",download_mode="reuse_cache_if_exists")
 
 
 
