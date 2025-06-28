@@ -3,7 +3,7 @@
 from transformers import AutoModel, AutoTokenizer
 from helical.models.scgpt import scGPT, scGPTConfig
 from helical.models.geneformer import Geneformer, GeneformerConfig
-from classification_head import ClassificationHead
+from ml.classification_head import ClassificationHead
 import torch
 
 def singleton(cls):
@@ -28,6 +28,13 @@ class ModelRegistry:
         self.classification_models = {}
         
         self._load_models()
+        
+        self.id2label= {0: 'ERYTHROID',
+        1: 'LYMPHOID',
+        2: 'MK',
+        3: 'MYELOID',
+        4: 'PROGENITOR',
+        5: 'STROMA'}
         print("✅ Models loaded successfully----------.")
 
     def _load_models(self):
@@ -57,3 +64,6 @@ class ModelRegistry:
     
     def get_device(self):
         return self.device
+    
+    def get_label(self, id):
+        return self.id2label.get(id, "Unknown")

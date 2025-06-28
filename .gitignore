@@ -31,3 +31,5 @@ yarn-error.log*
 # SQLite database
 *.sqlite3
 *.db
+
+backend/data/tmp/

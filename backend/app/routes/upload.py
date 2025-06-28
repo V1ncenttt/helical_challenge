@@ -4,13 +4,16 @@ import os
 
 router = APIRouter()
 
-UPLOAD_DIR = "/tmp/helical_uploads"
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+UPLOAD_DIR = os.path.join(BASE_DIR, "data", "tmp")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-@router.post("/")
+@router.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
     file_id = str(uuid.uuid4())
-    save_path = os.path.join(UPLOAD_DIR, file_id + "_" + file.filename)
+    save_path = os.path.join(UPLOAD_DIR, file_id + "." + file.filename.split(".")[-1])
     with open(save_path, "wb") as f:
         content = await file.read()
         f.write(content)
-    return {"upload_id": file_id}
+    save_path = os.path.abspath(os.path.join(UPLOAD_DIR, file_id + "." + file.filename.split(".")[-1]))
+    return {"upload_id": file_id, "file_path": save_path}

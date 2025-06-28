@@ -8,10 +8,14 @@ import enum
 
 class Workflow(Base):
     __tablename__ = "workflows"
-    id = Column(Integer, primary_key=True)
-    filename = Column(String)
+    #id is a uuid
+    id = Column(String, primary_key=True)  # UUID as string
+    application_id = Column(Integer, ForeignKey("applications.id"), nullable=False)
+    model_id = Column(Integer, ForeignKey("models.id"), nullable=False)
+    data_id = Column(Integer, nullable=False)  # This could be a file ID or similar identifier
+    workflow_metadata = Column(String, nullable=True)  # JSON or other metadata format
     status = Column(String)
-    result_path = Column(String)
+
     
 # --- Table definitions ---
 
