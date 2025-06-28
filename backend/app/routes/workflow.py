@@ -16,6 +16,8 @@ from app.tasks.run_workflow import run_workflow
 
 router = APIRouter()
 workflows_dict = {}
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+UPLOAD_DIR = os.path.join(BASE_DIR, "data", "tmp")
 
 class WorkflowRequest(BaseModel):
     upload_id: int
@@ -47,7 +49,19 @@ async def submit_workflow(payload: WorkflowRequest, db: Session = Depends(get_db
     application = db.query(Application).filter(Application.id == payload.application).first()
     if not application:
         raise HTTPException(status_code=404, detail="Application not found")
+    
+    model = db.query(Application.models).filter(Application.id == payload.application, Application.models.any(id=payload.model)).first()
+    if not model:
+        raise HTTPException(status_code=404, detail="Model not found for the given application")
+    
+    model = model.name
+    # Check if upload_id exists in the files
+    upload_path = os.path.join(UPLOAD_DIR, f"{payload.upload_id}.h5ad")
+    if not os.path.exists(upload_path):
+        raise HTTPException(status_code=404, detail=f"Upload file with ID {payload.upload_id} not found")
+    
     print(f"Submitting workflow for application: {application.name}, model: {payload.model}, upload_id: {payload.upload_id}")
+    
     workflow = Workflow(
         id=str(uuid4()),
         application_id=payload.application,
@@ -64,7 +78,7 @@ async def submit_workflow(payload: WorkflowRequest, db: Session = Depends(get_db
         raise HTTPException(status_code=400, detail="Failed to commit workflow to DB")
     
     try:
-        task = run_workflow.delay(workflow.data_id,workflow.model_id, workflow.application_id)
+        task = run_workflow.delay(workflow.data_id, model, workflow.application_id)
         workflows_dict[str(workflow.id)] = task.id
         print(f"Task {task.id} submitted for workflow {workflow.id}")
     except Exception as e:
