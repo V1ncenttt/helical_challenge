@@ -11,6 +11,7 @@ import os
 import json
 from sqlalchemy.exc import IntegrityError
 from app.tasks.run_workflow import run_workflow
+from app.tasks.run_workflow_mock import run_workflow_mock
 
 
 
@@ -80,7 +81,7 @@ async def submit_workflow(payload: WorkflowRequest, background_tasks: Background
         raise HTTPException(status_code=400, detail="Failed to commit workflow to DB")
     
     try:
-        task = run_workflow.delay(workflow_id, payload.upload_id, model_name, workflow.application_id)
+        task = run_workflow_mock.delay(workflow_id, payload.upload_id, model_name, workflow.application_id)
         workflows_dict[str(workflow.id)] = task.id
         print(f"Task {task.id} submitted for workflow {workflow.id}")
     except Exception as e:
@@ -135,7 +136,11 @@ async def check_status(job_id: str, db: Session = Depends(get_db)):
         res = AsyncResult(task_id)
         
         status = res.status
-        info = res.info
+        try:
+            info = res.info
+        except Exception as e:
+            print(f"Error retrieving task info: {e}")
+            info = None
 
         return {"job_id": job_id, "status": status, "info": info}
     raise HTTPException(status_code=404, detail="Workflow not found")

@@ -11,22 +11,33 @@ import { BarChart3, ScatterChartIcon as Scatter, TrendingUp, Download, FileText,
 interface ResultsVisualizationProps {
   results: {
     accuracy: number
-    cellTypes: string[]
-    confusionMatrix: number[][]
+    numCells: number
+    numCellTypes: number
+    cellTypeDistribution: Record<string, number>
     umapData: Array<{
       x: number
       y: number
-      cellType: string
+      label: string
+      confidence: number
       id: number
     }>
+    confidenceHistograms: Record<string, number[]>
+    confidenceAverages: Record<string, number>
+    confidenceStats: {
+      average: number
+      min: number
+      max: number
+    }
   }
 }
 
 export function ResultsVisualization({ results }: ResultsVisualizationProps) {
+  // Extract cell types from cellTypeDistribution
+  const cellTypes = Object.keys(results.cellTypeDistribution)
   const metrics = [
-    { name: "Overall Confidence", value: `${(results.accuracy * 100).toFixed(1)}%` },
-    { name: "Number of Cells", value: results.umapData.length.toLocaleString() },
-    { name: "Cell Types Identified", value: results.cellTypes.length },
+    { name: "Overall Confidence", value: `${(results.confidenceStats.average * 100).toFixed(1)}%` },
+    { name: "Number of Cells", value: results.numCells.toLocaleString() },
+    { name: "Cell Types Identified", value: results.numCellTypes },
     { name: "High Confidence Cells", value: "73%" },
   ]
 
@@ -36,8 +47,8 @@ export function ResultsVisualization({ results }: ResultsVisualizationProps) {
       cell_id: `cell_${cell.id}`,
       umap_1: cell.x.toFixed(3),
       umap_2: cell.y.toFixed(3),
-      predicted_cell_type: cell.cellType,
-      confidence_score: (0.6 + Math.random() * 0.35).toFixed(3),
+      predicted_cell_type: cell.label,
+      confidence_score: cell.confidence.toFixed(3),
       embedding_1: (Math.random() * 2 - 1).toFixed(6),
       embedding_2: (Math.random() * 2 - 1).toFixed(6),
       embedding_3: (Math.random() * 2 - 1).toFixed(6),
@@ -68,14 +79,14 @@ export function ResultsVisualization({ results }: ResultsVisualizationProps) {
 
   const downloadAnalysisReport = () => {
     // Generate comprehensive analysis report as JSON
-    const cellTypeCounts = results.cellTypes.map((cellType, index) => {
-      const count = results.umapData.filter((d) => d.cellType === cellType).length
+    const cellTypeCounts = cellTypes.map((cellType, index) => {
+      const count = results.umapData.filter((d) => d.label === cellType).length
       const percentage = Number.parseFloat(((count / results.umapData.length) * 100).toFixed(1))
       return {
         cell_type: cellType,
         count: count,
         percentage: percentage,
-        color: `hsl(${(index * 360) / results.cellTypes.length}, 70%, 60%)`,
+        color: `hsl(${(index * 360) / cellTypes.length}, 70%, 60%)`,
       }
     })
 
@@ -89,8 +100,8 @@ export function ResultsVisualization({ results }: ResultsVisualizationProps) {
       },
       summary: {
         total_cells: results.umapData.length,
-        cell_types_identified: results.cellTypes.length,
-        overall_confidence: Number.parseFloat((results.accuracy * 100).toFixed(1)),
+        cell_types_identified: cellTypes.length,
+        overall_confidence: Number.parseFloat((results.confidenceStats.average * 100).toFixed(1)),
         high_confidence_cells_percentage: 73,
         medium_confidence_cells_percentage: 15,
         low_confidence_cells_percentage: 12,
@@ -108,7 +119,7 @@ export function ResultsVisualization({ results }: ResultsVisualizationProps) {
         confidence_calculation: "softmax_probability",
       },
       quality_metrics: {
-        average_confidence: Number.parseFloat((results.accuracy * 100).toFixed(1)),
+        average_confidence: Number.parseFloat((results.confidenceStats.average * 100).toFixed(1)),
         min_confidence: 35.2,
         max_confidence: 98.7,
         cells_above_80_confidence: Math.round(results.umapData.length * 0.73),
@@ -186,11 +197,16 @@ export function ResultsVisualization({ results }: ResultsVisualizationProps) {
             </TabsList>
 
             <TabsContent value="umap" className="mt-6">
-              <UMAPPlot data={results.umapData} cellTypes={results.cellTypes} />
+              <UMAPPlot data={results.umapData} cellTypes={cellTypes} />
             </TabsContent>
 
             <TabsContent value="confidence" className="mt-6">
-              <ConfidenceDistribution cellTypes={results.cellTypes} umapData={results.umapData} />
+              <ConfidenceDistribution
+                confidenceStats={results.confidenceStats}
+                cellTypeDistribution={results.cellTypeDistribution}
+                confidenceHistograms={results.confidenceHistograms}
+                confidenceAverages={results.confidenceAverages}
+              />
             </TabsContent>
           </Tabs>
         </CardContent>
@@ -206,31 +222,30 @@ export function ResultsVisualization({ results }: ResultsVisualizationProps) {
         </CardHeader>
         <CardContent className="pt-6">
           <div className="space-y-3">
-            {results.cellTypes.map((cellType, index) => {
-              const count = results.umapData.filter((d) => d.cellType === cellType).length
-              const percentage = ((count / results.umapData.length) * 100).toFixed(1)
-
-              return (
-                <div
-                  key={cellType}
-                  className="flex items-center justify-between p-3 rounded-lg bg-black border border-white/20"
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-4 h-4 rounded-full"
-                      style={{
-                        backgroundColor: `hsl(${(index * 360) / results.cellTypes.length}, 70%, 60%)`,
-                      }}
-                    />
-                    <span className="font-medium text-white">{cellType}</span>
+            {results.cellTypeDistribution &&
+              Object.entries(results.cellTypeDistribution).map(([cellType, count], index) => {
+                const percentage = ((count / results.numCells) * 100).toFixed(1)
+                return (
+                  <div
+                    key={cellType}
+                    className="flex items-center justify-between p-3 rounded-lg bg-black border border-white/20"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-4 h-4 rounded-full"
+                        style={{
+                          backgroundColor: `hsl(${(index * 360) / Object.keys(results.cellTypeDistribution).length}, 70%, 60%)`,
+                        }}
+                      />
+                      <span className="font-medium text-white">{cellType}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge className="bg-black text-white border border-white/20">{count} cells</Badge>
+                      <Badge className="bg-white text-black border-white">{percentage}%</Badge>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge className="bg-black text-white border border-white/20">{count} cells</Badge>
-                    <Badge className="bg-white text-black border-white">{percentage}%</Badge>
-                  </div>
-                </div>
-              )
-            })}
+                )
+              })}
           </div>
         </CardContent>
       </Card>

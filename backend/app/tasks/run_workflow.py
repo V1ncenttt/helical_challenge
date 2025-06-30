@@ -110,16 +110,19 @@ def run_workflow(self, workflow_id, upload_id, model_name, application):
             "num_ambiguous": num_ambiguous,
             "confidence_stats": confidence_stats
         },
+        "total_cells": num_cells_analysed,
+        "confidence_stats": confidence_stats,
         "cell_type_distribution": cell_type_distribution,
+        "label_counts": {str(k): int(v) for k, v in dist.items()},
         "confidence_histograms": confidence_histograms,
         "confidence_averages": confidence_averages,
+        "confidence_scores": confidence_scores[:100].tolist(),  # Optional: first 100 for sampling
         "id_to_label": id2label,
         "umap": umap_points
     }
     redis_client.publish("workflow_results", json.dumps(result))
     delete_upload_file(upload_id)
     return result
-
 
 def load_upload_file(upload_id):
     """

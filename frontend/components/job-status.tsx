@@ -99,6 +99,16 @@ const getEstimatedTime = (jobState: JobState, progress: number) => {
 
 export function JobStatus({ jobState, progress, selectedModel, selectedApplication, onCancel }: JobStatusProps) {
   const config = jobStateConfig[jobState]
+  console.log("Rendering JobStatus for state:", jobState)
+
+  if (!config) {
+    return (
+      <Card className="bg-black border border-white/20 p-4">
+        <p className="text-white text-sm">Unknown job status: {jobState}</p>
+      </Card>
+    )
+  }
+
   const Icon = config.icon
   const isActive = ["pending", "embedding", "classification", "running_stats"].includes(jobState)
 

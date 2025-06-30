@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -24,6 +24,7 @@ interface AnalysisState {
   jobState: JobState
   jobProgress: number
   results: any
+  workflowId: string | null
 }
 
 export default function Dashboard() {
@@ -36,6 +37,7 @@ export default function Dashboard() {
     jobState: "idle",
     jobProgress: 0,
     results: null,
+    workflowId: null,
   })
 
   const handleFileUpload = (file: File) => {
@@ -53,51 +55,101 @@ export default function Dashboard() {
   }
 
   const runAnalysis = async () => {
-    setAnalysisState((prev) => ({ ...prev, isProcessing: true, jobState: "pending", jobProgress: 0 }))
+    setAnalysisState((prev) => ({ ...prev, isProcessing: true, jobProgress: 0 }));
 
-    // Simulate job pending
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-    setAnalysisState((prev) => ({ ...prev, jobState: "embedding", jobProgress: 20 }))
+    try {
+      const res = await fetch("http://localhost:8000/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          upload_id: "5b9178d0-6eeb-40ea-aaaa-66599d0bdfdc", // adjust if a true upload ID is used
+          model: 1,
+          application: 1,
+        }),
+      });
 
-    // Simulate embedding
-    await new Promise((resolve) => setTimeout(resolve, 2000))
-    setAnalysisState((prev) => ({ ...prev, jobState: "classification", jobProgress: 60 }))
+      const data = await res.json();
+      const workflowId = data.workflow_id;
 
-    // Simulate classification
-    await new Promise((resolve) => setTimeout(resolve, 2000))
-    setAnalysisState((prev) => ({ ...prev, jobState: "running_stats", jobProgress: 85 }))
-
-    // Simulate running stats
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-
-    // Mock results
-    const mockResults = {
-      accuracy: 0.92,
-      cellTypes: ["T-cells", "B-cells", "NK cells", "Monocytes", "Dendritic cells"],
-      confusionMatrix: [
-        [85, 3, 2, 1, 0],
-        [2, 78, 1, 2, 1],
-        [1, 0, 67, 3, 2],
-        [0, 1, 2, 89, 1],
-        [1, 0, 1, 2, 71],
-      ],
-      umapData: Array.from({ length: 500 }, (_, i) => ({
-        x: Math.random() * 20 - 10,
-        y: Math.random() * 20 - 10,
-        cellType: ["T-cells", "B-cells", "NK cells", "Monocytes", "Dendritic cells"][Math.floor(Math.random() * 5)],
-        id: i,
-      })),
+      setAnalysisState((prev) => ({
+        ...prev,
+        workflowId,
+      }));
+    } catch (err) {
+      console.error("Failed to submit job", err);
+      setAnalysisState((prev) => ({ ...prev, isProcessing: false, jobState: "failed" }));
     }
-
-    setAnalysisState((prev) => ({
-      ...prev,
-      isProcessing: false,
-      jobState: "success",
-      jobProgress: 100,
-      results: mockResults,
-    }))
-    setCurrentStep("results")
   }
+
+  const convertToJobState = (status: string, info: any): JobState => {
+    if (status === "SUCCESS") return "success"
+    if (status === "PROGRESS" || status === "PENDING") {
+      switch (info?.stage?.toUpperCase()) {
+        case "EMBEDDING":
+          return "embedding"
+        case "CLASSIFICATION":
+          return "classification"
+        case "RUNNING STATS":
+          return "running_stats"
+        default:
+          return "pending"
+      }
+    }
+    return "failed"
+  }
+
+  useEffect(() => {
+    if (analysisState.isProcessing && analysisState.workflowId) {
+      const interval = setInterval(async () => {
+        try {
+          const res = await fetch(`http://localhost:8000/status/${analysisState.workflowId}`);
+          const data = await res.json();
+          const jobState = convertToJobState(data.status, data.info);
+          console.log("Job status update:", jobState);
+
+          if (jobState === "success") {
+            clearInterval(interval);
+
+            try {
+              const resultRes = await fetch(`http://localhost:8000/result/${analysisState.workflowId}`);
+              const resultData = await resultRes.json();
+              console.log("Result data:", resultData);
+              setCurrentStep("results");
+              setAnalysisState((prev) => ({
+                ...prev,
+                isProcessing: false,
+                jobState,
+                jobProgress: 100,
+                results: {
+                  accuracy: resultData.summary.confidence_stats.average,
+                  cellTypes: Object.keys(resultData.cell_type_distribution),
+                  umapData: resultData.umap || [],
+                  numCells: resultData.summary.num_cells_analysed,
+                  numCellTypes: resultData.summary.num_cell_types
+                }
+              }));
+            } catch (error) {
+              console.error("Failed to fetch results:", error);
+              setAnalysisState((prev) => ({
+                ...prev,
+                isProcessing: false,
+                jobState: "failed"
+              }));
+            }
+          } else {
+            setAnalysisState((prev) => ({
+              ...prev,
+              jobState
+            }));
+          }
+        } catch (err) {
+          console.error("Error polling job status:", err);
+        }
+      }, 2000); // Poll every 2 seconds
+
+      return () => clearInterval(interval);
+    }
+  }, [analysisState.isProcessing, analysisState.workflowId]);
 
   const canProceed = () => {
     switch (currentStep) {
@@ -124,14 +176,25 @@ export default function Dashboard() {
         {/* Workflow Stepper */}
         <WorkflowStepper currentStep={currentStep} />
 
-        {/* Job Status - Show when processing */}
-        {analysisState.isProcessing && (
+        {/* Job Status - Show when processing and workflowId is set */}
+        {analysisState.isProcessing && analysisState.workflowId && (
           <div className="mt-8">
+            {/* Map backend status/info to JobState for JobStatus */}
             <JobStatus
-              jobState={analysisState.jobState}
-              progress={analysisState.jobProgress}
+              workflowId={analysisState.workflowId}
               selectedModel={analysisState.selectedModel}
               selectedApplication={analysisState.selectedApplication}
+              jobState={analysisState.jobState}
+              onComplete={() => {
+                setCurrentStep("results")
+                setAnalysisState((prev) => ({
+                  ...prev,
+                  isProcessing: false,
+                  jobState: "success",
+                  jobProgress: 100,
+                  results: {} // placeholder until real results are fetched
+                }))
+              }}
             />
           </div>
         )}
@@ -261,7 +324,7 @@ export default function Dashboard() {
                     <div className="flex justify-between items-center p-3 rounded-lg bg-black border border-white/20">
                       <span className="text-white font-medium">Cell Types:</span>
                       <Badge className="bg-black text-white border border-white/20">
-                        {analysisState.results.cellTypes.length}
+                        {analysisState.results.numCellTypes}
                       </Badge>
                     </div>
                   </div>
@@ -288,11 +351,11 @@ export default function Dashboard() {
                 <CardContent className="pt-6">
                   <div className="grid grid-cols-2 gap-4 text-center">
                     <div className="p-4 rounded-lg bg-black border border-white/20">
-                      <div className="text-2xl font-bold text-white">{analysisState.results.umapData.length}</div>
+                      <div className="text-2xl font-bold text-white">{analysisState.results.numCells}</div>
                       <div className="text-sm text-gray-400 font-medium">Cells Analyzed</div>
                     </div>
                     <div className="p-4 rounded-lg bg-black border border-white/20">
-                      <div className="text-2xl font-bold text-white">{analysisState.results.cellTypes.length}</div>
+                      <div className="text-2xl font-bold text-white">{analysisState.results.numCellTypes}</div>
                       <div className="text-sm text-gray-400 font-medium">Cell Types</div>
                     </div>
                   </div>
