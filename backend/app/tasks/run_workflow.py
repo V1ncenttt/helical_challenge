@@ -16,7 +16,7 @@ redis_client = redis.Redis(host="redis", port=6379, db=0)
 def publish_workflow_result(result):
     redis_client.publish("workflow_results", json.dumps(result))
 
-@celery_app.task(name="tasks.run_workflow")
+@celery_app.task(name="tasks.run_workflow", bind=True)
 def run_workflow(self, workflow_id, upload_id, model_name, application):
     #TODO: add application type handling
     
