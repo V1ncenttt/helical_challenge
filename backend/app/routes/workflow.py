@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, BackgroundTasks
 from pydantic import BaseModel
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
@@ -8,6 +8,7 @@ from db.database import get_db
 from db.models import Workflow, Application
 from fastapi import HTTPException
 import os
+import json
 from sqlalchemy.exc import IntegrityError
 from app.tasks.run_workflow import run_workflow
 
@@ -17,10 +18,10 @@ from app.tasks.run_workflow import run_workflow
 router = APIRouter()
 workflows_dict = {}
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-UPLOAD_DIR = os.path.join(BASE_DIR, "data", "tmp")
+UPLOAD_DIR = os.path.abspath(os.path.join(BASE_DIR, "..", "data", "tmp"))
 
 class WorkflowRequest(BaseModel):
-    upload_id: int
+    upload_id: str
     model: int
     application: int
 
@@ -44,29 +45,30 @@ class WorkflowRequest(BaseModel):
         503: {"description": "Task queue unavailable"}
     }
 )
-async def submit_workflow(payload: WorkflowRequest, db: Session = Depends(get_db)):
-    
+async def submit_workflow(payload: WorkflowRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    print(f"Received workflow submission request: {payload}")
     application = db.query(Application).filter(Application.id == payload.application).first()
     if not application:
         raise HTTPException(status_code=404, detail="Application not found")
-    
-    model = db.query(Application.models).filter(Application.id == payload.application, Application.models.any(id=payload.model)).first()
-    if not model:
+
+    model_obj = next((m for m in application.models if m.id == payload.model), None)
+    if not model_obj:
         raise HTTPException(status_code=404, detail="Model not found for the given application")
-    
-    model = model.name
+
+    model_name = model_obj.name
     # Check if upload_id exists in the files
+    print(UPLOAD_DIR)
+    print(BASE_DIR)
     upload_path = os.path.join(UPLOAD_DIR, f"{payload.upload_id}.h5ad")
     if not os.path.exists(upload_path):
         raise HTTPException(status_code=404, detail=f"Upload file with ID {payload.upload_id} not found")
     
     print(f"Submitting workflow for application: {application.name}, model: {payload.model}, upload_id: {payload.upload_id}")
-    
+    workflow_id = str(uuid4())
     workflow = Workflow(
-        id=str(uuid4()),
+        id=workflow_id,
         application_id=payload.application,
         model_id=payload.model,
-        data_id=payload.upload_id,
         status="pending"
     )
     try:
@@ -78,7 +80,7 @@ async def submit_workflow(payload: WorkflowRequest, db: Session = Depends(get_db
         raise HTTPException(status_code=400, detail="Failed to commit workflow to DB")
     
     try:
-        task = run_workflow.delay(workflow.data_id, model, workflow.application_id)
+        task = run_workflow.delay(workflow_id, payload.upload_id, model_name, workflow.application_id)
         workflows_dict[str(workflow.id)] = task.id
         print(f"Task {task.id} submitted for workflow {workflow.id}")
     except Exception as e:
@@ -133,8 +135,9 @@ async def check_status(job_id: str, db: Session = Depends(get_db)):
         res = AsyncResult(task_id)
         
         status = res.status
-        
-        return {"job_id": job_id, "status": status, }
+        info = res.info
+
+        return {"job_id": job_id, "status": status, "info": info}
     raise HTTPException(status_code=404, detail="Workflow not found")
 
 
@@ -162,9 +165,15 @@ async def check_status(job_id: str, db: Session = Depends(get_db)):
         }
     }
 )
-async def get_result(job_id: str):
-    #TODO: Will do later: check jsoon from DB and return the json instead
-    result_path = f"/tmp/helical_results/{job_id}.csv"
-    if not os.path.exists(result_path):
-        raise HTTPException(status_code=404, detail=f"Result file not found for workflow ID {job_id}")
-    return FileResponse(result_path, filename=f"{job_id}_result.csv")
+async def get_result(job_id: str, db: Session = Depends(get_db)):
+    workflow = db.query(Workflow).filter(Workflow.id == job_id).first()
+    if workflow:
+        if workflow.result:
+            # Deserialize before returning
+            result = json.loads(workflow.result) if isinstance(workflow.result, str) else workflow.result
+            return result
+        else:
+            raise HTTPException(status_code=404, detail="Workflow is still running or result is not yet available")
+    else:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+    #TODO: fix histogram, add 0s

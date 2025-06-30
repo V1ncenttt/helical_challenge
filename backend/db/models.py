@@ -1,6 +1,6 @@
 # backend/db/models.py
 from sqlalchemy.orm import declarative_base
-from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, Float, Enum, PrimaryKeyConstraint
+from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, Float, Enum, PrimaryKeyConstraint, JSON
 from sqlalchemy.orm import relationship
 from db.database import Base
 import enum
@@ -12,8 +12,7 @@ class Workflow(Base):
     id = Column(String, primary_key=True)  # UUID as string
     application_id = Column(Integer, ForeignKey("applications.id"), nullable=False)
     model_id = Column(Integer, ForeignKey("models.id"), nullable=False)
-    data_id = Column(Integer, nullable=False)  # This could be a file ID or similar identifier
-    workflow_metadata = Column(String, nullable=True)  # JSON or other metadata format
+    result = Column(JSON, nullable=True)  # Stores the result of the workflow
     status = Column(String)
 
     

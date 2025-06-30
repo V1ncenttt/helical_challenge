@@ -21,6 +21,16 @@ def singleton(cls):
     return get_instance
 
 @singleton
+class A():
+    def __init__(self):
+        self.a = 1
+        
+a = A()
+b = A()
+if a is not b:
+    raise RuntimeError("A is not a singleton, multiple instances detected.")
+
+@singleton
 class ModelRegistry:
     def __init__(self):
         
@@ -45,14 +55,14 @@ class ModelRegistry:
         self.num_classes = 6
         
         print("✅ Models loaded successfully----------.")
-
+        
     def _load_models(self):
         print("Loading models...")
-        scgpt_config = scGPTConfig(batch_size=50, device=self.device)
+        scgpt_config = scGPTConfig(batch_size=4, device=self.device)
         scgpt = scGPT(configurer = scgpt_config)
         self.embedding_models["scgpt"] = scgpt
 
-        geneformer_config = GeneformerConfig(batch_size=50, device=self.device)
+        geneformer_config = GeneformerConfig(batch_size=4, device=self.device)
         geneformer = Geneformer(configurer = geneformer_config)
         self.embedding_models["geneformer"] = geneformer
 
@@ -91,3 +101,6 @@ class ModelRegistry:
         nn.Dropout(0.4),
         nn.Linear(32, self.num_classes)
         )
+
+    
+    
