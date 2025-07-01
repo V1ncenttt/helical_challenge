@@ -214,12 +214,12 @@ export function ResultsVisualization({ results }: ResultsVisualizationProps) {
                   <div className="flex-1">
                     <h4 className="font-semibold text-white mb-2">Annotated Dataset</h4>
                     <p className="text-sm text-gray-400 mb-4">
-                      Complete dataset with cell type annotations, confidence scores, and high-dimensional embeddings
+                      Complete dataset with cell type annotations, confidence scores, and umap coordinates
                     </p>
                     <div className="space-y-2 mb-4">
                       <div className="flex items-center gap-2 text-xs text-gray-400">
                         <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
-                        Cell IDs and predictions
+                        Cell IDs 
                       </div>
                       <div className="flex items-center gap-2 text-xs text-gray-400">
                         <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
@@ -231,7 +231,7 @@ export function ResultsVisualization({ results }: ResultsVisualizationProps) {
                       </div>
                       <div className="flex items-center gap-2 text-xs text-gray-400">
                         <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
-                        512-dimensional embeddings
+                        Cell type annotations
                       </div>
                     </div>
                     <Button

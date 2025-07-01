@@ -9,6 +9,7 @@ import redis
 from app.worker import celery_app
 from ml.model_registry import ModelRegistry
 import pandas as pd
+import logging
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 UPLOAD_DIR = os.path.join(BASE_DIR, "..", "data", "tmp")
@@ -25,9 +26,9 @@ def run_workflow(self, workflow_id, upload_id, model_name, application):
     global UPLOAD_DIR, redis_client
     
     data = load_upload_file(upload_id)
-    print(f"Loaded data for workflow {workflow_id} from {upload_id}.h5ad")
+    logging.info(f"Loaded data for workflow {workflow_id} from {upload_id}.h5ad")
     model_registry = ModelRegistry()
-    print(model_name)
+    logging.info(f"Model name: {model_name}")
     model_name_lower = model_name.lower()
     embedding_model, classification_model = model_registry.get_model(model_name_lower)
     device = model_registry.get_device()
@@ -158,7 +159,7 @@ def save_annotated_data(data, probs, pred_labels, umap_points, workflow_id):
         "umap_y": [p["y"] for p in umap_points]
     })
     file_loc = os.path.join(folder, f"annotated_data_{workflow_id}.csv")
-    print(f"Saving annotated data to {file_loc}")
+    logging.info(f"Saving annotated data to {file_loc}")
     df.to_csv(file_loc, index=False)
 
 def load_upload_file(upload_id):
@@ -167,7 +168,7 @@ def load_upload_file(upload_id):
     """
     file_path = os.path.join(UPLOAD_DIR, f"{upload_id}.h5ad")
     if os.path.exists(file_path):
-        print(f"Loading upload file: {file_path}")
+        logging.info(f"Loading upload file: {file_path}")
         return sc.read_h5ad(file_path)
     else:
         raise FileNotFoundError(f"Upload file with ID {upload_id} not found.")
@@ -179,6 +180,6 @@ def delete_upload_file(upload_id):
     file_path = os.path.join(UPLOAD_DIR, f"{upload_id}.h5ad")
     if os.path.exists(file_path):
         os.remove(file_path)
-        print(f"Deleted upload file: {file_path}")
+        logging.info(f"Deleted upload file: {file_path}")
     else:
-        print(f"File not found: {file_path}")
+        logging.warning(f"File not found: {file_path}")

@@ -104,8 +104,9 @@ export function JobStatus({ jobState, progress, selectedModel, selectedApplicati
   const displayProgress = (() => {
     switch (jobState) {
       case "idle":
-      case "embedding":
         return 0;
+      case "embedding":
+        return 10;
       case "classification":
         return 75;
       case "running_stats":

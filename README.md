@@ -56,8 +56,14 @@ It includes a FastAPI backend, React frontend (with shadcn/ui), and task executi
 | GET    | `/applications`               | List available applications             |
 | GET    | `/models`                     | List all models with attributes         |
 | GET    | `/applications/{id}/models`   | Get models linked to an application     |
-| POST   | `/run`                        | Submit job (model, application, input)  |
-| GET    | `/results/{run_id}`           | Fetch run status and stored output      |
+| POST   | `/submit`                        | Submit job (model, application, input)  |
+| GET    | `/results/{run_id}`           | Fetch run output      |
+| GET    | `/status/{run_id}`           | Fetch run status and stored output      |
+| POST    | `/upload`           | Upload data      |
+| GET    | `/download/{run_id}`           | Download annotated data      |
+
+
+
 
 ---
 
@@ -76,7 +82,6 @@ celery -A backend.celery_worker worker --loglevel=info
 ## 💾 Storing Results
 
 Each prediction stores:
-- Confusion matrix
 - Cell type probabilities
 - Raw model outputs
 - Metadata
@@ -103,6 +108,7 @@ docker-compose up --build
 Once running:
 - FastAPI backend → http://localhost:8000
 - Swagger docs → http://localhost:8000/docs
+- Front end application → http://localhost:3000
 
 ---
 

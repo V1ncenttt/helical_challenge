@@ -32,8 +32,16 @@ export function UMAPPlot({ data, cellTypes }: UMAPPlotProps) {
     }
   }, [data])
 
-  const normalizeX = (x: number) => ((x - minX) / (maxX - minX)) * 100
-  const normalizeY = (y: number) => ((y - minY) / (maxY - minY)) * 100
+  const normalizeX = (x: number) => {
+    if (maxX === minX) return 50;
+    const padding = 0.05 * (maxX - minX);
+    return ((x - minX + padding) / (maxX - minX + 2 * padding)) * 100;
+  }
+  const normalizeY = (y: number) => {
+    if (maxY === minY) return 50;
+    const padding = 0.05 * (maxY - minY);
+    return ((y - minY + padding) / (maxY - minY + 2 * padding)) * 100;
+  }
 
   return (
     <div className="space-y-4">
