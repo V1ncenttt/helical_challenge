@@ -1,3 +1,42 @@
+"""
+workflow.py
+
+Author: Vincent Lefeuve  
+Date: 2025-06-28
+
+This module defines API routes related to managing and executing annotation workflows in the Helical backend service.
+
+It provides endpoints for:
+- Submitting a new workflow (`/submit`)
+- Checking the status of a workflow (`/status/{job_id}`)
+- Retrieving the result of a workflow (`/result/{job_id}`)
+- Downloading the annotated dataset (`/download/{job_id}`)
+
+Each submitted workflow corresponds to a user-uploaded `.h5ad` dataset file, a selected application, and an associated model. Submitted workflows are processed asynchronously using Celery.
+
+Modules and Components:
+-----------------------
+- FastAPI: Used for routing and HTTP handling.
+- SQLAlchemy: ORM for database interaction.
+- Celery: Handles background task execution.
+- Pydantic: Used for request payload validation.
+- OS and JSON: File handling and serialization.
+- UUID: Used to uniquely identify each workflow.
+
+Key Concepts:
+-------------
+- `WorkflowRequest`: Pydantic model defining the required payload for a workflow submission.
+- `workflows_dict`: In-memory dictionary mapping workflow IDs to Celery task IDs.
+- `UPLOAD_DIR`: Directory path where user-uploaded `.h5ad` files and result files are stored.
+- `run_workflow`: Celery task responsible for executing the actual model-based annotation logic.
+
+Notes:
+------
+- Results are serialized JSON objects stored in the database and returned via the `/result/{job_id}` endpoint.
+- UMAP embeddings, cell type labels, confidence scores, and annotated CSV files are generated as part of the workflow output.
+- This module assumes the application and model IDs are valid and linked in the database.
+"""
+
 from fastapi import APIRouter, Depends, BackgroundTasks
 from pydantic import BaseModel
 from fastapi.responses import FileResponse
@@ -12,9 +51,6 @@ import json
 from sqlalchemy.exc import IntegrityError
 from app.tasks.run_workflow import run_workflow
 from app.tasks.run_workflow_mock import run_workflow_mock
-
-
-
 
 router = APIRouter()
 workflows_dict = {}

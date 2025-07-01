@@ -1,3 +1,31 @@
+"""
+run_workflow.py
+
+Author: Vincent Lefeuve  
+Date: 2025-06-29
+
+This module defines the core asynchronous task used to process a cell type annotation workflow in the Helical platform. It handles:
+
+- Loading user-uploaded single-cell datasets (.h5ad format)
+- Running the embedding and classification models
+- Computing and summarizing prediction confidence and label distribution
+- Generating UMAP coordinates for visualization
+- Storing results and broadcasting them via Redis
+- Saving annotated data to CSV for download
+- Cleaning up temporary uploaded files
+
+The main Celery task `run_workflow` orchestrates this full process. It relies on the ModelRegistry to retrieve model components and is designed to support future extensions via the `application` parameter.
+
+Redis is used to publish real-time progress updates and final results, while intermediate progress is reported using `self.update_state` for frontend polling.
+
+This file also defines helpers to load and delete uploaded files, and to store annotated results.
+
+Dependencies:
+- scanpy for data loading and UMAP
+- torch and numpy for embedding and inference
+- redis for messaging
+- pandas for result export
+"""
 import scanpy as sc
 import torch
 import numpy as np
@@ -16,12 +44,34 @@ UPLOAD_DIR = os.path.join(BASE_DIR, "..", "data", "tmp")
 redis_client = redis.Redis(host="redis", port=6379, db=0)
 
 def publish_workflow_result(result):
+    """
+    Publishes the final workflow result to the Redis channel "workflow_results".
+
+    Args:
+        result (dict): The result dictionary containing workflow metadata, summary, predictions, and UMAP points.
+    """
     redis_client.publish("workflow_results", json.dumps(result))
 
 @celery_app.task(name="tasks.run_workflow", bind=True)
 def run_workflow(self, workflow_id, upload_id, model_name, application):
-    #TODO: add application type handling
-    
+    """
+    Celery task that processes a full cell type annotation workflow. This includes:
+    - Loading the uploaded .h5ad file
+    - Running embedding and classification models
+    - Calculating confidence statistics
+    - Running UMAP for visualization
+    - Saving and publishing results
+
+    Args:
+        self: The Celery task instance (for state updates)
+        workflow_id (str): Unique ID for this workflow run
+        upload_id (str): ID of the uploaded .h5ad file
+        model_name (str): The model to use for embedding and classification
+        application (str): The chosen application, e.g., "cell_type_annotation"
+
+    Returns:
+        dict: A JSON-serializable result dictionary containing predictions and statistics.
+    """
 
     global UPLOAD_DIR, redis_client
     
@@ -139,12 +189,16 @@ def run_workflow(self, workflow_id, upload_id, model_name, application):
     delete_upload_file(upload_id)
     return result
 def save_annotated_data(data, probs, pred_labels, umap_points, workflow_id):
-    """ 
-    Saves the annotated data as a csv file with for each cell:
-    - cell_id
-    - probability of the cell being each type
-    - predicted label
-    - UMAP coordinates
+    """
+    Saves annotated data as CSV including cell ID, prediction probabilities,
+    predicted labels, and UMAP coordinates.
+
+    Args:
+        data (AnnData): The annotated scanpy data object
+        probs (ndarray): Prediction probabilities
+        pred_labels (ndarray): Predicted class labels
+        umap_points (list): List of dictionaries with UMAP x, y, label, confidence
+        workflow_id (str): ID for the workflow to name the output file
     """
     
     global UPLOAD_DIR
@@ -164,7 +218,13 @@ def save_annotated_data(data, probs, pred_labels, umap_points, workflow_id):
 
 def load_upload_file(upload_id):
     """
-    Loads the uploaded file for processing.
+    Loads the user-uploaded .h5ad file from the temporary upload directory.
+
+    Args:
+        upload_id (str): ID of the uploaded file
+
+    Returns:
+        AnnData: The loaded single-cell data object
     """
     file_path = os.path.join(UPLOAD_DIR, f"{upload_id}.h5ad")
     if os.path.exists(file_path):
@@ -175,7 +235,10 @@ def load_upload_file(upload_id):
     
 def delete_upload_file(upload_id):
     """
-    Deletes the uploaded file after processing.
+    Deletes the uploaded .h5ad file after processing to free up storage.
+
+    Args:
+        upload_id (str): ID of the uploaded file
     """
     file_path = os.path.join(UPLOAD_DIR, f"{upload_id}.h5ad")
     if os.path.exists(file_path):
