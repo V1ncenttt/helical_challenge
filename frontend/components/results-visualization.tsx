@@ -10,6 +10,7 @@ import { BarChart3, ScatterChartIcon as Scatter, TrendingUp, Download, FileText,
 
 interface ResultsVisualizationProps {
   results: {
+    workflowId: string
     accuracy: number
     numCells: number
     numCellTypes: number
@@ -28,118 +29,57 @@ interface ResultsVisualizationProps {
       min: number
       max: number
     }
+    confidenceBreakdown: {
+      high: number
+      medium: number
+      low: number
+    }
   }
 }
 
 export function ResultsVisualization({ results }: ResultsVisualizationProps) {
+  if (
+    !results ||
+    !results.cellTypeDistribution ||
+    !results.confidenceStats ||
+    !results.umapData ||
+    !results.confidenceHistograms ||
+    !results.confidenceAverages
+  ) {
+    return <div className="text-white">No results data available.</div>;
+  }
+
   // Extract cell types from cellTypeDistribution
   const cellTypes = Object.keys(results.cellTypeDistribution)
   const metrics = [
     { name: "Overall Confidence", value: `${(results.confidenceStats.average * 100).toFixed(1)}%` },
     { name: "Number of Cells", value: results.numCells.toLocaleString() },
     { name: "Cell Types Identified", value: results.numCellTypes },
-    { name: "High Confidence Cells", value: "73%" },
+    { name: "High Confidence Cells", value: `${results.confidenceBreakdown.high}` },
   ]
 
-  const downloadAnnotatedData = () => {
-    // Generate mock annotated data
-    const annotatedData = results.umapData.map((cell, index) => ({
-      cell_id: `cell_${cell.id}`,
-      umap_1: cell.x.toFixed(3),
-      umap_2: cell.y.toFixed(3),
-      predicted_cell_type: cell.label,
-      confidence_score: cell.confidence.toFixed(3),
-      embedding_1: (Math.random() * 2 - 1).toFixed(6),
-      embedding_2: (Math.random() * 2 - 1).toFixed(6),
-      embedding_3: (Math.random() * 2 - 1).toFixed(6),
-      // Add more embedding dimensions...
-      ...Array.from({ length: 10 }, (_, i) => ({
-        [`embedding_${i + 4}`]: (Math.random() * 2 - 1).toFixed(6),
-      })).reduce((acc, curr) => ({ ...acc, ...curr }), {}),
-    }))
-
-    // Convert to CSV
-    const headers = Object.keys(annotatedData[0])
-    const csvContent = [
-      headers.join(","),
-      ...annotatedData.map((row) => headers.map((header) => row[header as keyof typeof row]).join(",")),
-    ].join("\n")
-
-    // Create and download file
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
-    const link = document.createElement("a")
-    const url = URL.createObjectURL(blob)
-    link.setAttribute("href", url)
-    link.setAttribute("download", "helical_annotated_cells.csv")
-    link.style.visibility = "hidden"
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-  }
+  const downloadAnnotatedData = async () => {
+    try {
+      const response = await fetch(`http://localhost:8000/download/${results.workflowId}`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch annotated dataset.");
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", "helical_annotated_cells.csv");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error("Download error:", error);
+    }
+  };
 
   const downloadAnalysisReport = () => {
-    // Generate comprehensive analysis report as JSON
-    const cellTypeCounts = cellTypes.map((cellType, index) => {
-      const count = results.umapData.filter((d) => d.label === cellType).length
-      const percentage = Number.parseFloat(((count / results.umapData.length) * 100).toFixed(1))
-      return {
-        cell_type: cellType,
-        count: count,
-        percentage: percentage,
-        color: `hsl(${(index * 360) / cellTypes.length}, 70%, 60%)`,
-      }
-    })
-
-    const analysisReport = {
-      metadata: {
-        analysis_id: `helical_${Date.now()}`,
-        generated_at: new Date().toISOString(),
-        version: "1.0.0",
-        model: "Helical Foundation Model",
-        application: "Cell Type Annotation",
-      },
-      summary: {
-        total_cells: results.umapData.length,
-        cell_types_identified: cellTypes.length,
-        overall_confidence: Number.parseFloat((results.confidenceStats.average * 100).toFixed(1)),
-        high_confidence_cells_percentage: 73,
-        medium_confidence_cells_percentage: 15,
-        low_confidence_cells_percentage: 12,
-      },
-      cell_type_distribution: cellTypeCounts,
-      analysis_parameters: {
-        embedding_dimensions: 512,
-        umap_parameters: {
-          n_neighbors: 15,
-          min_dist: 0.1,
-          n_components: 2,
-          metric: "cosine",
-        },
-        classification_threshold: 0.5,
-        confidence_calculation: "softmax_probability",
-      },
-      quality_metrics: {
-        average_confidence: Number.parseFloat((results.confidenceStats.average * 100).toFixed(1)),
-        min_confidence: 35.2,
-        max_confidence: 98.7,
-        cells_above_80_confidence: Math.round(results.umapData.length * 0.73),
-        cells_below_50_confidence: Math.round(results.umapData.length * 0.12),
-      },
-      files_generated: [
-        {
-          filename: "helical_annotated_cells.csv",
-          description: "Complete dataset with cell type annotations, confidence scores, and embeddings",
-          format: "CSV",
-          columns: ["cell_id", "umap_1", "umap_2", "predicted_cell_type", "confidence_score", "embedding_1", "..."],
-        },
-        {
-          filename: "helical_analysis_report.json",
-          description: "Comprehensive analysis report with metadata, statistics, and parameters",
-          format: "JSON",
-        },
-      ],
-    }
-
+    // Directly serialize the results object as the analysis report
+    const analysisReport = results;
     const jsonContent = JSON.stringify(analysisReport, null, 2)
     const blob = new Blob([jsonContent], { type: "application/json;charset=utf-8;" })
     const link = document.createElement("a")
@@ -206,6 +146,7 @@ export function ResultsVisualization({ results }: ResultsVisualizationProps) {
                 cellTypeDistribution={results.cellTypeDistribution}
                 confidenceHistograms={results.confidenceHistograms}
                 confidenceAverages={results.confidenceAverages}
+                confidenceBreakdown={results.confidenceBreakdown}
               />
             </TabsContent>
           </Tabs>

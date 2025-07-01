@@ -9,6 +9,11 @@ interface ConfidenceDistributionProps {
     average: number
     min: number
     max: number
+    breakdown?: {
+      high?: number
+      medium?: number
+      low?: number
+    }
   }
   confidenceHistograms: Record<string, number[]>
   confidenceAverages: Record<string, number>
@@ -20,12 +25,14 @@ export function ConfidenceDistribution({
   confidenceHistograms,
   confidenceAverages,
   cellTypeDistribution,
+  confidenceBreakdown
 }: ConfidenceDistributionProps) {
   const confidenceData = useMemo(() => {
     if (!cellTypeDistribution) return []
     const cellTypes = Object.keys(cellTypeDistribution)
     return cellTypes.map((cellType, index) => {
-      const bins = confidenceHistograms?.[cellType] || []
+      const binsObj = confidenceHistograms?.[cellType] || {}
+      const bins = Object.values(binsObj)
       const avgConfidence = confidenceAverages?.[cellType] || 0
       const count = cellTypeDistribution?.[cellType] || 0
       const minConfidence = 0.3 // placeholder
@@ -45,10 +52,10 @@ export function ConfidenceDistribution({
 
   const maxBinValue = Math.max(...confidenceData.flatMap((d) => d.bins))
 
-  const totalCells = Object.values(cellTypeDistribution || {}).reduce((sum, c) => sum + c, 0)
-  const highConfidence = Math.round(totalCells * 0.73)
-  const mediumConfidence = Math.round(totalCells * 0.15)
-  const lowConfidence = Math.round(totalCells * 0.12)
+  
+  const highConfidence = confidenceBreakdown.high || 0
+  const mediumConfidence = confidenceBreakdown.medium || 0
+  const lowConfidence = confidenceBreakdown.low || 0
 
   return (
     <div className="space-y-6">
@@ -114,10 +121,16 @@ export function ConfidenceDistribution({
 
                 {/* Confidence range labels */}
                 <div className="flex justify-between text-xs text-gray-400">
-                  <span>30%</span>
-                  <span>50%</span>
-                  <span>70%</span>
-                  <span>90%</span>
+                  <span>0%</span>
+                  {/* <span>10%</span> */}
+                  <span>20%</span>
+                  {/* <span>30%</span> */}
+                  <span>40%</span>
+                  {/* <span>50%</span> */}
+                  <span>60%</span>
+                  {/* <span>70%</span> */}
+                  <span>80%</span>
+                  {/* <span>90%</span> */}
                   <span>100%</span>
                 </div>
               </div>

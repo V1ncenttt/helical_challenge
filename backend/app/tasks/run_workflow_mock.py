@@ -57,6 +57,18 @@ def run_workflow_mock(self, workflow_id, upload_id, model_name, application):
         count = confidence_counts[cell_type]
         confidence_averages[cell_type] = round(confidence_sums[cell_type] / count, 4) if count > 0 else 0.0
 
+    high_confidence = 0
+    medium_confidence = 0
+    low_confidence = 0
+
+    for point in umap_points:
+        if point["confidence"] >= 0.75:
+            high_confidence += 1
+        elif point["confidence"] >= 0.5:
+            medium_confidence += 1
+        else:
+            low_confidence += 1
+
     result = {
         "workflow_id": workflow_id,
         "status": "completed",
@@ -74,7 +86,12 @@ def run_workflow_mock(self, workflow_id, upload_id, model_name, application):
                 "min": 0.22,
                 "max": 0.97,
                 "average": 0.74
-            }
+            },
+            "confidence_breakdown": {
+                "high": high_confidence,
+                "medium": medium_confidence,
+                "low": low_confidence
+            },
         },
         "total_cells": 1000,
         "confidence_stats": {

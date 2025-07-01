@@ -9,7 +9,7 @@ import { Upload, File, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface FileUploadProps {
-  onFileUpload: (file: File) => void
+  onFileUpload: (file: File, uploadId: string) => void
 }
 
 export function FileUpload({ onFileUpload }: FileUploadProps) {
@@ -27,6 +27,9 @@ export function FileUpload({ onFileUpload }: FileUploadProps) {
       })
       const result = await response.json()
       console.log("Upload response:", result)
+      if (result.upload_id) {
+        onFileUpload(file, result.upload_id)
+      }
     } catch (err) {
       console.error("Upload failed:", err)
     }
@@ -51,7 +54,7 @@ export function FileUpload({ onFileUpload }: FileUploadProps) {
       if (e.dataTransfer.files && e.dataTransfer.files[0]) {
         const file = e.dataTransfer.files[0]
         setUploadedFile(file)
-        onFileUpload(file)
+        // Remove direct call to onFileUpload here; it will be called from uploadToServer
         uploadToServer(file)
       }
     },
@@ -62,7 +65,7 @@ export function FileUpload({ onFileUpload }: FileUploadProps) {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0]
       setUploadedFile(file)
-      onFileUpload(file)
+      // Remove direct call to onFileUpload here; it will be called from uploadToServer
       uploadToServer(file)
     }
   }

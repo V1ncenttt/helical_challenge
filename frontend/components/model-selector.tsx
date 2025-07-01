@@ -8,8 +8,8 @@ import { Brain, Zap, Star, Clock } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface ModelSelectorProps {
-  selectedModel: string
-  onModelSelect: (model: string) => void
+  selectedModel: { id: number; name: string } | null
+  onModelSelect: (model: { id: number; name: string }) => void
 }
 
 export function ModelSelector({ selectedModel, onModelSelect }: ModelSelectorProps) {
@@ -48,11 +48,11 @@ export function ModelSelector({ selectedModel, onModelSelect }: ModelSelectorPro
               key={model.id}
               className={cn(
                 "cursor-pointer transition-all duration-300 hover:shadow-md bg-black border",
-                selectedModel === model.name
+                selectedModel?.id === model.id
                   ? "ring-2 ring-white border-white bg-white/5"
                   : "border-white/20 hover:bg-white/5 hover:border-white/50",
               )}
-              onClick={() => onModelSelect(model.name)}
+              onClick={() => onModelSelect(model)}
             >
               <CardHeader className="pb-3 border-b border-white/10">
                 <div className="flex items-center justify-between">
@@ -91,13 +91,13 @@ export function ModelSelector({ selectedModel, onModelSelect }: ModelSelectorPro
                 <Button
                   className={cn(
                     "w-full transition-all duration-300 font-medium",
-                    selectedModel === model.name
+                    selectedModel?.id === model.id
                       ? "bg-white text-black hover:bg-gray-200 border border-white"
                       : "bg-black text-white border border-white/20 hover:bg-white/10 hover:border-white/50",
                   )}
                   size="sm"
                 >
-                  {selectedModel === model.name ? "Selected" : "Select Model"}
+                  {selectedModel?.id === model.id ? "Selected" : "Select Model"}
                 </Button>
               </CardContent>
             </Card>

@@ -8,6 +8,7 @@ import json
 import redis
 from app.worker import celery_app
 from ml.model_registry import ModelRegistry
+import pandas as pd
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 UPLOAD_DIR = os.path.join(BASE_DIR, "..", "data", "tmp")
@@ -24,7 +25,7 @@ def run_workflow(self, workflow_id, upload_id, model_name, application):
     global UPLOAD_DIR, redis_client
     
     data = load_upload_file(upload_id)
-
+    print(f"Loaded data for workflow {workflow_id} from {upload_id}.h5ad")
     model_registry = ModelRegistry()
     print(model_name)
     model_name_lower = model_name.lower()
@@ -51,7 +52,7 @@ def run_workflow(self, workflow_id, upload_id, model_name, application):
     # Distribution
     self.update_state(state="PROGRESS", meta={"stage": "RUNNING STATS"})
     dist = Counter(pred_labels.cpu().numpy())
-    cell_type_distribution = {model_registry.get_label(str(k)): int(v) for k, v in dist.items()}
+    cell_type_distribution = {id2label[i]: int(dist.get(i, 0)) for i in range(len(id2label))}
 
     # Summary
     threshold = 0.5
@@ -62,6 +63,15 @@ def run_workflow(self, workflow_id, upload_id, model_name, application):
         "min": confidence_scores.min().item(),
         "max": confidence_scores.max().item(),
         "average": confidence_scores.mean().item()
+    }
+
+    high_confidence = int((confidence_scores > 0.8).sum().item())
+    medium_confidence = int(((confidence_scores > 0.6) & (confidence_scores <= 0.8)).sum().item())
+    low_confidence = int((confidence_scores <= 0.6).sum().item())
+    confidence_breakdown = {
+        "high": high_confidence,
+        "medium": medium_confidence,
+        "low": low_confidence
     }
 
     # Confidence histograms
@@ -81,6 +91,8 @@ def run_workflow(self, workflow_id, upload_id, model_name, application):
         mask = (pred_labels == i)
         if mask.sum() > 0:
             confidence_averages[id2label[i]] = confidence_scores[mask].mean().item()
+        else:
+            confidence_averages[id2label[i]] = None
 
     # UMAP
     data.obsm["X_embedded"] = x_embedded.cpu().numpy()
@@ -108,21 +120,46 @@ def run_workflow(self, workflow_id, upload_id, model_name, application):
             "num_cells_analysed": num_cells_analysed,
             "num_cell_types": num_cell_types,
             "num_ambiguous": num_ambiguous,
-            "confidence_stats": confidence_stats
+            "confidence_stats": confidence_stats,
+            "confidence_breakdown": confidence_breakdown
         },
         "total_cells": num_cells_analysed,
         "confidence_stats": confidence_stats,
         "cell_type_distribution": cell_type_distribution,
-        "label_counts": {str(k): int(v) for k, v in dist.items()},
+        "label_counts": {str(i): int(dist.get(i, 0)) for i in range(len(id2label))},
         "confidence_histograms": confidence_histograms,
         "confidence_averages": confidence_averages,
-        "confidence_scores": confidence_scores[:100].tolist(),  # Optional: first 100 for sampling
+        "confidence_scores": confidence_scores[:100].tolist(),
         "id_to_label": id2label,
         "umap": umap_points
     }
+    save_annotated_data(data, probs.cpu().numpy(), pred_labels.cpu().numpy(), umap_points, workflow_id)
     redis_client.publish("workflow_results", json.dumps(result))
     delete_upload_file(upload_id)
     return result
+def save_annotated_data(data, probs, pred_labels, umap_points, workflow_id):
+    """ 
+    Saves the annotated data as a csv file with for each cell:
+    - cell_id
+    - probability of the cell being each type
+    - predicted label
+    - UMAP coordinates
+    """
+    
+    global UPLOAD_DIR
+    folder = os.path.join(UPLOAD_DIR, "results")
+    os.makedirs(folder, exist_ok=True)
+    
+    df = pd.DataFrame({
+        "cell_id": data.obs.index,
+        **{f"PROBA_{i}": probs[:, i] for i in range(probs.shape[1])},
+        "predicted_label": pred_labels.tolist(),
+        "umap_x": [p["x"] for p in umap_points],
+        "umap_y": [p["y"] for p in umap_points]
+    })
+    file_loc = os.path.join(folder, f"annotated_data_{workflow_id}.csv")
+    print(f"Saving annotated data to {file_loc}")
+    df.to_csv(file_loc, index=False)
 
 def load_upload_file(upload_id):
     """

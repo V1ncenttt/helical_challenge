@@ -101,6 +101,20 @@ export function JobStatus({ jobState, progress, selectedModel, selectedApplicati
   const config = jobStateConfig[jobState]
   console.log("Rendering JobStatus for state:", jobState)
 
+  const displayProgress = (() => {
+    switch (jobState) {
+      case "idle":
+      case "embedding":
+        return 0;
+      case "classification":
+        return 75;
+      case "running_stats":
+        return 90;
+      default:
+        return progress;
+    }
+  })();
+
   if (!config) {
     return (
       <Card className="bg-black border border-white/20 p-4">
@@ -150,9 +164,9 @@ export function JobStatus({ jobState, progress, selectedModel, selectedApplicati
           <div className="space-y-2">
             <div className="flex justify-between items-center">
               <span className="text-sm text-white font-medium">Progress</span>
-              <span className="text-sm text-gray-400">{progress}%</span>
+              <span className="text-sm text-gray-400">{displayProgress}%</span>
             </div>
-            <Progress value={progress} className="w-full bg-black border border-white/20" />
+            <Progress value={displayProgress} className="w-full bg-black border border-white/20" />
           </div>
 
           {/* Job Details */}

@@ -6,7 +6,7 @@ interface UMAPPlotProps {
   data: Array<{
     x: number
     y: number
-    cellType: string
+    label: string
     id: number
   }>
   cellTypes: string[]
@@ -15,8 +15,8 @@ interface UMAPPlotProps {
 export function UMAPPlot({ data, cellTypes }: UMAPPlotProps) {
   const colorMap = useMemo(() => {
     const colors: Record<string, string> = {}
-    cellTypes.forEach((cellType, index) => {
-      colors[cellType] = `hsl(${(index * 360) / cellTypes.length}, 70%, 50%)`
+    cellTypes.forEach((label, index) => {
+      colors[label] = `hsl(${(index * 360) / cellTypes.length}, 70%, 50%)`
     })
     return colors
   }, [cellTypes])
@@ -39,17 +39,64 @@ export function UMAPPlot({ data, cellTypes }: UMAPPlotProps) {
     <div className="space-y-4">
       <div className="relative w-full h-96 bg-black rounded-lg border border-white/20 overflow-hidden">
         <svg className="w-full h-full">
+          {/* Graduation lines and labels */}
+          {[0, 25, 50, 75, 100].map((perc) => (
+            <g key={`h-${perc}`}>
+              <line
+                x1="0"
+                x2="100%"
+                y1={`${100 - perc}%`}
+                y2={`${100 - perc}%`}
+                stroke="white"
+                strokeWidth="0.5"
+                strokeDasharray="2,2"
+                opacity="0.2"
+              />
+              <text
+                x="2"
+                y={`${100 - perc}%`}
+                fontSize="10"
+                fill="white"
+                alignmentBaseline="middle"
+              >
+                {((perc / 100) * (maxY - minY) + minY).toFixed(1)}
+              </text>
+            </g>
+          ))}
+          {[0, 25, 50, 75, 100].map((perc) => (
+            <g key={`v-${perc}`}>
+              <line
+                y1="0"
+                y2="100%"
+                x1={`${perc}%`}
+                x2={`${perc}%`}
+                stroke="white"
+                strokeWidth="0.5"
+                strokeDasharray="2,2"
+                opacity="0.2"
+              />
+              <text
+                y="10"
+                x={`${perc}%`}
+                fontSize="10"
+                fill="white"
+                textAnchor="middle"
+              >
+                {((perc / 100) * (maxX - minX) + minX).toFixed(1)}
+              </text>
+            </g>
+          ))}
           {data.map((point) => (
             <circle
-              key={point.id}
+              key={`${point.id}-${point.x}-${point.y}`}
               cx={`${normalizeX(point.x)}%`}
               cy={`${100 - normalizeY(point.y)}%`}
               r="2"
-              fill={colorMap[point.cellType]}
+              fill={colorMap[point.label]}
               opacity="0.8"
               className="hover:opacity-100 hover:r-3 transition-all duration-200"
             >
-              <title>{`${point.cellType} (${point.x.toFixed(2)}, ${point.y.toFixed(2)})`}</title>
+              <title>{`${point.label} (${point.x.toFixed(2)}, ${point.y.toFixed(2)})`}</title>
             </circle>
           ))}
         </svg>
@@ -65,18 +112,18 @@ export function UMAPPlot({ data, cellTypes }: UMAPPlotProps) {
 
       {/* Legend */}
       <div className="flex flex-wrap gap-4 justify-center p-4 bg-black rounded-lg border border-white/20">
-        {cellTypes.map((cellType) => (
+        {cellTypes.map((label) => (
           <div
-            key={cellType}
+            key={label}
             className="flex items-center gap-2 px-3 py-1 rounded-full bg-black border border-white/20"
           >
             <div
               className="w-3 h-3 rounded-full"
               style={{
-                backgroundColor: colorMap[cellType],
+                backgroundColor: colorMap[label],
               }}
             />
-            <span className="text-sm text-white">{cellType}</span>
+            <span className="text-sm text-white">{label}</span>
           </div>
         ))}
       </div>

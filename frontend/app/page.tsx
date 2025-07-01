@@ -18,39 +18,41 @@ type JobState = "idle" | "pending" | "embedding" | "classification" | "running_s
 
 interface AnalysisState {
   file: File | null
-  selectedModel: string
-  selectedApplication: string
+  selectedModel: { id: number; name: string } | null
+  selectedApplication: { id: number; name: string } | null
   isProcessing: boolean
   jobState: JobState
   jobProgress: number
   results: any
   workflowId: string | null
+  uploadId?: string
 }
 
 export default function Dashboard() {
   const [currentStep, setCurrentStep] = useState<WorkflowStep>("data")
   const [analysisState, setAnalysisState] = useState<AnalysisState>({
     file: null,
-    selectedModel: "",
-    selectedApplication: "",
+    selectedModel: null,
+    selectedApplication: null,
     isProcessing: false,
     jobState: "idle",
     jobProgress: 0,
     results: null,
     workflowId: null,
+    uploadId: undefined,
   })
 
-  const handleFileUpload = (file: File) => {
-    setAnalysisState((prev) => ({ ...prev, file }))
+  const handleFileUpload = (file: File, uploadId: string) => {
+    setAnalysisState((prev) => ({ ...prev, file, uploadId }))
     setCurrentStep("model")
   }
 
-  const handleModelSelect = (model: string) => {
+  const handleModelSelect = (model: { id: number; name: string }) => {
     setAnalysisState((prev) => ({ ...prev, selectedModel: model }))
     setCurrentStep("application")
   }
 
-  const handleApplicationSelect = (application: string) => {
+  const handleApplicationSelect = (application: { id: number; name: string }) => {
     setAnalysisState((prev) => ({ ...prev, selectedApplication: application }))
   }
 
@@ -62,11 +64,12 @@ export default function Dashboard() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          upload_id: "5b9178d0-6eeb-40ea-aaaa-66599d0bdfdc", // adjust if a true upload ID is used
-          model: 1,
-          application: 1,
+          upload_id: analysisState.uploadId || "unknown",
+          model: analysisState.selectedModel?.id,
+          application: analysisState.selectedApplication?.id,
         }),
       });
+      console.log(analysisState.uploadId, analysisState.selectedModel, analysisState.selectedApplication);
 
       const data = await res.json();
       const workflowId = data.workflow_id;
@@ -121,11 +124,17 @@ export default function Dashboard() {
                 jobState,
                 jobProgress: 100,
                 results: {
-                  accuracy: resultData.summary.confidence_stats.average,
+                  workflowId: analysisState.workflowId,
+                  accuracy: resultData.confidence_stats?.average || resultData.summary.confidence_stats.average,
                   cellTypes: Object.keys(resultData.cell_type_distribution),
                   umapData: resultData.umap || [],
                   numCells: resultData.summary.num_cells_analysed,
-                  numCellTypes: resultData.summary.num_cell_types
+                  numCellTypes: resultData.summary.num_cell_types,
+                  confidenceStats: resultData.confidence_stats,
+                  cellTypeDistribution: resultData.cell_type_distribution,
+                  confidenceHistograms: resultData.confidence_histograms,
+                  confidenceAverages: resultData.confidence_averages,
+                  confidenceBreakdown: resultData.summary.confidence_breakdown
                 }
               }));
             } catch (error) {
@@ -182,8 +191,8 @@ export default function Dashboard() {
             {/* Map backend status/info to JobState for JobStatus */}
             <JobStatus
               workflowId={analysisState.workflowId}
-              selectedModel={analysisState.selectedModel}
-              selectedApplication={analysisState.selectedApplication}
+              selectedModel={analysisState.selectedModel?.name}
+              selectedApplication={analysisState.selectedApplication?.name}
               jobState={analysisState.jobState}
               onComplete={() => {
                 setCurrentStep("results")
@@ -240,7 +249,7 @@ export default function Dashboard() {
               </TabsList>
 
               <TabsContent value="data" className="mt-6">
-                <FileUpload onFileUpload={handleFileUpload} />
+                <FileUpload onFileUpload={(file, uploadId) => handleFileUpload(file, uploadId)} />
               </TabsContent>
 
               <TabsContent value="model" className="mt-6">
@@ -294,7 +303,7 @@ export default function Dashboard() {
                           : "bg-black text-white border border-white/20"
                       }
                     >
-                      {analysisState.selectedModel || "Not selected"}
+                      {analysisState.selectedModel?.name || "Not selected"}
                     </Badge>
                   </div>
                   <div className="flex justify-between items-center p-3 rounded-lg bg-black border border-white/20">
@@ -307,7 +316,7 @@ export default function Dashboard() {
                           : "bg-black text-white border border-white/20"
                       }
                     >
-                      {analysisState.selectedApplication || "Not selected"}
+                      {analysisState.selectedApplication?.name || "Not selected"}
                     </Badge>
                   </div>
                 </div>

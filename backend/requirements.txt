@@ -8,3 +8,4 @@ scanpy
 flower
 numpy
 torch
+pandas

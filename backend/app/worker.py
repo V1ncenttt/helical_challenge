@@ -12,5 +12,5 @@ celery_app = Celery(
 
 @worker_process_init.connect
 def load_models_on_startup(**kwargs):
-    #registry = ModelRegistry()
+    registry = ModelRegistry()
     pass

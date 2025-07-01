@@ -8,11 +8,11 @@ import { Target, FileText, Beaker, GitBranch } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface ApplicationSelectorProps {
-  selectedApplication: string
-  onApplicationSelect: (application: string) => void
+  selectedApplicationId: number | null;
+  onApplicationSelect: (application: { id: number; name: string }) => void;
 }
 
-export function ApplicationSelector({ selectedApplication, onApplicationSelect }: ApplicationSelectorProps) {
+export function ApplicationSelector({ selectedApplicationId, onApplicationSelect }: ApplicationSelectorProps) {
   const [applications, setApplications] = useState<any[]>([])
 
   useEffect(() => {
@@ -51,11 +51,11 @@ export function ApplicationSelector({ selectedApplication, onApplicationSelect }
                 key={app.id}
                 className={cn(
                   "cursor-pointer transition-all duration-300 hover:shadow-md bg-black border",
-                  selectedApplication === app.name
+                  selectedApplicationId === app.id
                     ? "ring-2 ring-white border-white bg-white/5"
                     : "border-white/20 hover:bg-white/5 hover:border-white/50",
                 )}
-                onClick={() => onApplicationSelect(app.name)}
+                onClick={() => onApplicationSelect({ id: app.id, name: app.name })}
               >
                 <CardHeader className="pb-3 border-b border-white/10">
                   <div className="flex items-center gap-3">
@@ -85,13 +85,13 @@ export function ApplicationSelector({ selectedApplication, onApplicationSelect }
                     <Button
                       className={cn(
                         "w-full transition-all duration-300 font-medium",
-                        selectedApplication === app.name
+                        selectedApplicationId === app.id
                           ? "bg-white text-black hover:bg-gray-200 border border-white"
                           : "bg-black text-white border border-white/20 hover:bg-white/10 hover:border-white/50",
                       )}
                       size="sm"
                     >
-                      {selectedApplication === app.name ? "Selected" : "Select Application"}
+                      {selectedApplicationId === app.id ? "Selected" : "Select Application"}
                     </Button>
                   </div>
                 </CardContent>
