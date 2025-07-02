@@ -2,7 +2,7 @@
 
 This project is a full-stack web application enabling users to **explore**, **select**, and **run Bio Foundation Models** such as **Geneformer** and **scGPT** for biological use cases like **cell annotation**.
 
-It includes a FastAPI backend, React frontend (with shadcn/ui), and task execution via **Celery + Redis**. Both models are **preloaded in memory** for low-latency inference, and results (e.g. confusion matrices) are persisted in a database.
+It includes a FastAPI backend, React (Next.js) frontend (with shadcn/ui), and task execution via **Celery + Redis**. Both models are **preloaded in memory** for low-latency inference, and results (e.g. confusion matrices) are persisted in a database.
 
 ---
 
@@ -10,7 +10,7 @@ It includes a FastAPI backend, React frontend (with shadcn/ui), and task executi
 
 - 🔬 Run **Geneformer** and **scGPT** for **cell type annotation**
 - 🧠 Load models into RAM at startup
-- 📊 Store confusion matrices, probabilities, and metadata per run
+- 📊 Store UMAP points, probabilities, and metadata per run
 - 🌐 REST API to query applications and models
 - ⚙️ Task queue via **Celery + Redis**
 - 🐳 Dockerized environment for local and cloud deployment
@@ -62,20 +62,11 @@ It includes a FastAPI backend, React frontend (with shadcn/ui), and task executi
 | POST    | `/upload`           | Upload data      |
 | GET    | `/download/{run_id}`           | Download annotated data      |
 
-
-
-
 ---
 
 ## ⚙️ Asynchronous Task Handling
 
 Uses [**Celery**](https://docs.celeryq.dev) with [**Redis**](https://redis.io/) to handle long-running model inference jobs asynchronously.
-
-Run the Celery worker:
-
-```bash
-celery -A backend.celery_worker worker --loglevel=info
-```
 
 ---
 
@@ -86,7 +77,7 @@ Each prediction stores:
 - Raw model outputs
 - Metadata
 
-These are stored as structured JSON (e.g. via SQLite’s `Text` field or PostgreSQL `JSONB`).
+These are stored as structured JSON (e.g. via SQLite’s `Text` field or PostgreSQL `JSONB`), and as CSV.
 
 ---
 
@@ -121,23 +112,8 @@ Once running:
 
 ---
 
-## 🧑‍💻 Development
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn backend.main:app --reload
-```
-
----
-
 ## 📬 Contact
 
-Vincent Lefeuve – [vincent.lefeuve@imperial.ac.uk](mailto:vincent.lefeuve@imperial.ac.uk)
+Vincent Lefeuve – [vincent.lefeuve24@imperial.ac.uk](mailto:vincent.lefeuve@imperial.ac.uk)
 
----
 
-## 📜 License
-
-MIT License. See `LICENSE` for details.
