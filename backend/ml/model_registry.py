@@ -20,15 +20,6 @@ def singleton(cls):
 
     return get_instance
 
-@singleton
-class A():
-    def __init__(self):
-        self.a = 1
-        
-a = A()
-b = A()
-if a is not b:
-    raise RuntimeError("A is not a singleton, multiple instances detected.")
 
 @singleton
 class ModelRegistry:
