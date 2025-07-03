@@ -1,3 +1,9 @@
+"""
+Celery worker configuration for the Hellical application.
+
+This module sets up the Celery app, specifying Redis as the broker and result backend.
+It also ensures that the model registry is loaded when the Celery worker process starts.
+"""
 from celery import Celery
 from celery.signals import worker_process_init
 from ml.model_registry import ModelRegistry
@@ -12,5 +18,11 @@ celery_app = Celery(
 
 @worker_process_init.connect
 def load_models_on_startup(**kwargs):
+    """
+    Celery signal handler that runs when a worker process starts.
+
+    Loads the model registry into memory, so that models are ready
+    for use when tasks are processed.
+    """
     registry = ModelRegistry()
-    pass
+    # Optionally preload models or perform setup
